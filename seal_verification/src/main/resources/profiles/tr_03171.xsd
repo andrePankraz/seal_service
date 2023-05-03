@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xs:element name="profile">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="profileNumber" type="xs:string" />
+				<xs:element name="profileName" type="xs:string" />
+				<xs:element name="creator" type="xs:string" />
+				<xs:element name="category" type="xs:string"
+					minOccurs="0" />
+				<xs:element name="leikaID" type="xs:string" minOccurs="0" />
+				<xs:element name="entry" type="entryType" minOccurs="1"
+					maxOccurs="251" />
+			</xs:sequence>
+		</xs:complexType>
+		<xs:unique name="tagNo">
+			<xs:selector xpath="entry" />
+			<xs:field xpath="@tag" />
+		</xs:unique>
+	</xs:element>
+	<xs:complexType name="entryType">
+		<xs:sequence>
+			<xs:element name="name" type="xs:string" />
+			<xs:element name="description" type="xs:string" />
+			<xs:element name="length" type="xs:positiveInteger"
+				minOccurs="0" />
+			<xs:element name="type" type="typeType" />
+			<xs:element name="defaultValue" type="xs:string"
+				minOccurs="0" />
+		</xs:sequence>
+		<xs:attribute name="tag" type="tagType" use="required" />
+		<xs:attribute name="optional" type="xs:boolean" />
+	</xs:complexType>
+	<xs:simpleType name="typeType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="alphanum" />
+			<xs:enumeration value="string" />
+			<xs:enumeration value="multistring" />
+			<xs:enumeration value="binary" />
+			<xs:enumeration value="date" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tagType">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="4" />
+			<xs:maxInclusive value="254" />
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

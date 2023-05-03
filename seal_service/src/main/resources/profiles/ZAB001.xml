@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<profile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="tr_03171.xsd">
+	<profileNumber>ZAB001</profileNumber>
+	<profileName>ZAB Zeugnisbewertung (Version 1)</profileName>
+	<creator>ZAB</creator>
+	<category>TODO</category>
+	<leikaID>TODO</leikaID>
+	<entry optional="false" tag="4">
+		<name>Urkundennummer</name>
+		<description>description</description>
+		<length>6</length>
+		<type>alphanum</type>
+	</entry>
+	<entry optional="false" tag="5">
+		<name>Name</name>
+		<description>description</description>
+		<length>30</length>
+		<type>string</type>
+	</entry>
+	<entry optional="false" tag="6">
+		<name>Vorname</name>
+		<description>description</description>
+		<length>30</length>
+		<type>string</type>
+	</entry>
+	<entry optional="false" tag="7">
+		<name>Geburtsdatum</name>
+		<description>description</description>
+		<type>date</type>
+	</entry>
+	<entry optional="false" tag="8">
+		<name>Abschlussbezeichnung</name>
+		<description>description</description>
+		<length>60</length>
+		<type>string</type>
+	</entry>
+	<entry optional="false" tag="9">
+		<name>Bewertung</name>
+		<description>description</description>
+		<length>200</length>
+		<type>string</type>
+	</entry>
+</profile>

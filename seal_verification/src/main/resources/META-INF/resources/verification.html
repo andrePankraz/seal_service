@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+<meta charset="utf-8" />
+<title>ZAB-Verifikationsseite für Zeugnisbewertungs-Siegel</title>
+<link rel="stylesheet" href="simple.css">
+<link rel="stylesheet" href="style.css">
+<script src="bundle.js"></script>
+</head>
+
+<body>
+	<h1>Zeugnisbewertungen prüfen</h1>
+	<div id="input">
+		<p>Auf dieser Seite können Sie prüfen, ob eine Zeugnisbewertung
+			durch die ZAB ausgestellt wurde. Auf dem Dokument sind dafür zwei
+			kryptografisch gesicherte Merkmale enthalten:</p>
+		<ul>
+			<li><b>PDF-Signatur</b>: Das PDF enthält ein digitales Siegel in
+				den Metadaten (auch in Acrobat Reader über "Unterschriftsfenster"
+				prüfbar)</li>
+			<li><b>Visuelles Siegel</b>: Das PDF enthält einen sichtbaren
+				"QR-Code"</li>
+		</ul>
+		<p>Wenn Sie das Dokument auf dieser Seite hochladen (als PDF oder
+			als Bild), dann werden diese Merkmale geprüft und das Ergebnis mit
+			Erläuterungen angezeigt. Alternativ können Sie eine Webcam benutzen
+			(sofern verfügbar) und das Dokument in die Kamera halten. Die
+			Auswertung erfolgt dabei lokal auf Ihrem Gerät (im Browser), es
+			werden keine Daten an einen Server übermittelt.</p>
+		<div id="file_upload" class="dropzone">
+			Zeugnisbewertung als PDF oder Bild (Scan/Foto) zur Verifikation
+			hochladen:<br>Klicke für Dateiauswahl oder Drag &amp; Drop
+		</div>
+		<button id="scanner_btn" hidden="true">Alternativ: Nutze
+			Kamera für Scan</button>
+		<div id="scanner"></div>
+	</div>
+	<div id="result" hidden="true">
+		<div id="result_out"></div>
+		<p>Bei Rückfragen wenden Sie sich bitte an die ZAB.</p>
+		<button id="result_btn">Weitere Prüfung</button>
+	</div>
+
+	<script>
+        window.onload = async _ => {
+            const inputElement = document.getElementById('input')
+            const file_upload = document.getElementById('file_upload')
+            const scannerBtn = document.getElementById('scanner_btn')
+            const resultElement = document.getElementById('result')
+            const resultOutElement = document.getElementById('result_out')
+            const resultBtn = document.getElementById('result_btn')
+
+            function onResultSuccess(html) {
+            	inputElement.hidden = true
+                resultOutElement.innerHTML = html
+                resultElement.hidden = false
+            }
+            
+            function onResultError(error) {
+                console.error('Error:', error)
+                inputElement.hidden = true
+                result_out.innerHTML = '<h2>Prüfergebnis: Negativ</h2><p>Es ist ein technischer Fehler aufgetreten. Bitte versuchen Sie es später noch einmal.</p>'
+                resultElement.hidden = false
+            }
+            
+            // init file select action
+            file_upload.onclick = _ => {
+                const inputFile = document.createElement('input')
+                inputFile.type = 'file'
+                   inputFile.multiple = true
+                   inputFile.onchange = event => seal_verification.verifyUpload(event.target.files).then(onResultSuccess).catch(onResultError)
+                   inputFile.click()
+            }
+            // init dropdown action
+            file_upload.ondragenter = event => {
+                event.stopPropagation()
+                event.preventDefault()
+                if (event.target.classList.contains('dropzone')) {
+                  event.target.classList.add('dragover')
+                }
+            }
+            file_upload.ondragleave = event => {
+                event.stopPropagation()
+                event.preventDefault()
+                if (event.target.classList.contains('dropzone')) {
+                    event.target.classList.remove('dragover')
+                }
+            }
+            file_upload.ondragover = event => {
+                event.stopPropagation()
+                event.preventDefault()
+            }
+            file_upload.ondrop = event => {
+                event.stopPropagation()
+                event.preventDefault()
+                if (event.target.classList.contains('dropzone')) {
+                    event.target.classList.remove('dragover')
+                }
+                const dt = event.dataTransfer
+                const files = dt.files
+                seal_verification.verifyUpload(files).then(onResultSuccess).catch(onResultError)
+            }
+
+            seal_verification.checkWebcamAvailability().then(available => {
+                if (!available) {
+                    return
+                }
+                scannerBtn.hidden = false
+
+                scannerBtn.onclick = _ => {
+                    scannerBtn.hidden = true
+                    try {
+                        // Must work with explicit callbacks, Promises only resolved once
+                        seal_verification.setupScanner('scanner', onResultSuccess, onResultError)
+                    } catch (error) {
+                        alert(error)
+                    }
+                }
+            })
+
+            resultBtn.onclick = _ => {
+                resultElement.hidden = true
+                inputElement.hidden = false
+            }
+        }
+    </script>
+</body>
+
+</html>

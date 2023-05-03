@@ -1,0 +1,23 @@
+{
+	"name": "seal-verification",
+	"version": "1.0.0",
+	"description": "App for validating seals",
+	"main": "main.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"watch": "watchify main.js --standalone seal_verification --poll=1000 -o ../resources/META-INF/resources/bundle.js -v",
+		"build": "browserify main.js --standalone seal_verification | uglifyjs -mc > ../resources/META-INF/resources/bundle.js"
+	},
+	"author": "andre@pankraz.de",
+	"license": "ISC",
+	"dependencies": {
+		"html5-qrcode": "^2.3.8",
+		"image-js": "^0.35.3",
+		"pdf-signature-reader": "^1.4.2",
+		"pdfjs-dist": "3.3.122"
+	},
+	"devDependencies": {
+		"uglify-js": "^3.17.4",
+		"watchify": "^4.0.0"
+	}
+}

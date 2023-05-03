@@ -1,0 +1,32 @@
+# See environment variables in file ".env"
+version: '3.8'
+services:
+  seal_validation:
+    build:
+      context: seal_verification/src/main/docker
+      dockerfile: Dockerfile.jvm
+      target: ${TARGET:-local} # dev or local
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    networks:
+      - app-tier
+    ports:
+      - "8200:8200"
+  seal_service:
+    build:
+      context: seal_service/src/main/docker
+      dockerfile: Dockerfile.jvm
+      target: ${TARGET:-local} # dev or local
+    depends_on:
+      - seal_verification
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    networks:
+      - app-tier
+    ports:
+      - "8202:8202"
+networks:
+  default:
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
+  app-tier:
