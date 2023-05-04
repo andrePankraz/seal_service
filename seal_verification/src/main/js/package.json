@@ -11,6 +11,7 @@
 	"author": "andre@pankraz.de",
 	"license": "ISC",
 	"dependencies": {
+		"browserify": "^17.0.0",
 		"html5-qrcode": "^2.3.8",
 		"image-js": "^0.35.3",
 		"pdf-signature-reader": "^1.4.2",

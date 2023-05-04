@@ -24,6 +24,9 @@ function readFileAsync(file) {
 async function getPublicKey(serialNumber) {
 	const response = await fetch(`/seal_verification/pdf_public_key?serial_number=${serialNumber}`)
 	if (!response.ok) {
+		if (response.status === 404) {
+			return null
+		}
 		throw new Error(`HTTP error: ${response.status}`);
 	}
 	const pemContents = await response.text()
@@ -45,6 +48,7 @@ function attr2html(value) {
 async function fetchDocumentValid(documentNumber) {
 	const response = await fetch(`/seal_verification/valid?document_number=${documentNumber}`)
 	if (!response.ok) {
+		// No 404 possible, unknown documentNumbers are automatically acknowledged with valid (true)
 		throw new Error(`HTTP error: ${response.status}`);
 	}
 	return await response.json()
@@ -103,6 +107,9 @@ async function verifySignatures(signatures) {
 			const { clientCertificate, issuedBy, issuedTo, pemCertificate, validityPeriod } = cert
 			const forgeCert = forge.pki.certificateFromPem(pemCertificate)
 			const publicKeyFromServer = await getPublicKey(forgeCert.serialNumber)
+			if (publicKeyFromServer === null) {
+				continue
+			}
 			const publicKeyFromCert = forge.pki.publicKeyToPem(forgeCert.publicKey)
 			const valid = cleanPEMCertificate(publicKeyFromServer) === cleanPEMCertificate(publicKeyFromCert)
 			if (valid) {
@@ -136,7 +143,7 @@ async function verifySignatures(signatures) {
 	if (foundSig) {
 		return '<h2>Prüfergebnis: Negativ</h2>'
 			+ '<p>Das PDF enthält zwar eine digitale Signatur, aber diese konnte nicht zugeordnet werden.'
-			+ 'Das Dokument wurde nicht durch die ZAB ausgestellt.</p>'
+			+ ' Das Dokument wurde nicht durch die ZAB ausgestellt.</p>'
 	}
 	return false
 }

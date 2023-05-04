@@ -21,6 +21,11 @@ class Decoder {
 		this.data = data
 	}
 
+	/**
+	 * Decode.
+	 * 
+	 * @returns {boolean|string} true or string with user fault message
+	 */
 	async decode() {
 		this.pos = 0
 
@@ -57,40 +62,83 @@ class Decoder {
 		// ################
 		// # Message Zone #
 		// ################
-		this.dokumentenprofilnummer = this.decodeMessageC40(0x00)
-		this.urkundennummer = this.decodeMessageC40(0x04)
-		this.name = this.decodeMessageString(0x05)
-		this.vorname = this.decodeMessageString(0x06)
-		this.geburtsdatum = this.decodeMessageDate(0x07)
-		this.abschlussbezeichnung = this.decodeMessageString(0x08)
-		this.bewertung = this.decodeMessageString(0x09)
+		this.docProfileNr = this.decodeMessageC40(0x00)
+
+		// All following values are dynamic, dependent of a XML profile with docProfileNr
+		const profileXml = await this.fetchProfile(this.docProfileNr)
+		if (profileXml === null) {
+			return `Das Siegel enthält eine unkannte Dokumentenprofilnummer '${this.docProfileNr}'.`
+		}
+		const domParser = new DOMParser()
+		const domProfile = domParser.parseFromString(profileXml, 'application/xml')
+
+		const values = new Map()
+		for (let tag = this.peekMessageTag(); tag !== 0xff; tag = this.peekMessageTag()) {
+			const entry = domProfile.querySelector(`entry[tag="${tag}"]`)
+			if (entry === null) {
+				return `Das Siegel enthält ein unkanntes Nachrichtentag '${tag}'.`
+			}
+			const type = entry.querySelector("type").textContent
+			let value
+			switch (type) {
+				case 'alphanum':
+					value = this.decodeMessageC40(tag)
+					break
+				case 'string':
+					value = this.decodeMessageString(tag)
+					break
+				case 'multistring':
+					value = this.decodeMessageString(tag)
+					break
+				case 'binary':
+					value = this.decodeMessageBytes(tag)
+					break
+				case 'date':
+					value = this.decodeMessageDate(tag)
+					break
+			}
+			const name = entry.querySelector("name").textContent
+			values.set(tag, { 'name': name, 'value': value })
+		}
+		// Check required fields
+		const entries = domProfile.querySelectorAll('entry[optional="false"]')
+		entries.forEach(entry => {
+			const tag = entry.getAttribute("tag")
+			if (!values.has(parseInt(tag))) {
+				throw new Error(`Value for tag ${tag} is missing.`)
+			}
+		})
+		this.values = values
 
 		// ##################
 		// # Signature Zone #
 		// ##################
 		this.signaturePos = this.pos
 		this.signature = this.decodeMessageSignature()
-		this.signatureValid = await this.verifySignature(this.data.subarray(0, this.signaturePos), this.signature, this.certificateReference)
+		const publicKey = await this.fetchPublicKey(this.certificateReference)
+		if (publicKey === null) {
+			return `Das Siegel enthält eine unkannte Zertifikatsreferenz '${this.certificateReference}'.`
+		}
+		this.signatureValid = await this.verifySignature(this.data.subarray(0, this.signaturePos), this.signature, publicKey)
 
 		// Debugging: Log info...
-		if (false) {
-			console.log(`Signature valid: ${this.signatureValid}`)
+		if (true) {
+			console.log('Header:')
+			console.log(`  Aussteller: ${this.signerIdentifier}`)
+			console.log(`  Zertifikat: ${this.certificateReference}`)
+			console.log(`  Ausstelldatum: ${this.documentIssueDate}`)
+			console.log(`  Signierdatum: ${this.signatureCreationDate}`)
 
-			console.log('Kopfdaten...')
-			console.log(`Aussteller: ${this.signerIdentifier}`)
-			console.log(`Zertifikat: ${this.certificateReference}`)
-			console.log(`Ausstelldatum: ${this.documentIssueDate}`)
-			console.log(`Signierdatum: ${this.signatureCreationDate}`)
+			console.log('Message:')
+			console.log(`  Dokumentenprofilnummer: ${this.docProfileNr}`)
+			for (const [key, value] of this.values.entries()) {
+				console.log(`  ${key} - ${value.name}: ${value.value}`)
+			}
 
-			console.log('Message...')
-			console.log(`Dokumentenprofilnummer: ${this.dokumentenprofilnummer}`)
-			console.log(`Urkundennummer: ${this.urkundennummer}`)
-			console.log(`Name: ${this.name}`)
-			console.log(`Vorname: ${this.vorname}`)
-			console.log(`Geburtsdatum: ${this.geburtsdatum}`)
-			console.log(`Abschlussbezeichnung: ${this.abschlussbezeichnung}`)
-			console.log(`Bewertung: ${this.bewertung}`)
+			console.log('Signature:')
+			console.log(`  Signature valid: ${this.signatureValid}`)
 		}
+		return true
 	}
 
 	decodeByte() {
@@ -203,6 +251,26 @@ class Decoder {
 	}
 
 	/**
+	 * Get next message tag without increasing stream position.
+
+	 * @returns {number} next message tag
+	 */
+	peekMessageTag() {
+		return this.data[this.pos]
+	}
+
+	async fetchProfile(docProfileNr) {
+		const response = await fetch(`/seal_verification/profile?doc_profile_nr=${docProfileNr}`)
+		if (!response.ok) {
+			if (response.status === 404) {
+				return null
+			}
+			throw new Error(`HTTP error: ${response.status}`)
+		}
+		return await response.text()
+	}
+
+	/**
 	 * Fetch ECDSA signature public key for a given serial number from server and convert to ECDSA public key.
 	 * 
 	 * @param {string} serialNumber - Serial number of ECDSA signature public key ("001", "002", ...)
@@ -212,13 +280,16 @@ class Decoder {
 	async fetchPublicKey(serialNumber) {
 		const response = await fetch(`/seal_verification/visual_public_key?serial_number=${serialNumber}`)
 		if (!response.ok) {
-			throw new Error(`HTTP error: ${response.status}`);
+			if (response.status === 404) {
+				return null
+			}
+			throw new Error(`HTTP error: ${response.status}`)
 		}
 		const pemContents = await response.text()
 		const binaryDerString = window.atob(pemContents)
-		const binaryDer = new Uint8Array(binaryDerString.length);
+		const binaryDer = new Uint8Array(binaryDerString.length)
 		for (let i = 0; i < binaryDerString.length; i++) {
-			binaryDer[i] = binaryDerString.charCodeAt(i);
+			binaryDer[i] = binaryDerString.charCodeAt(i)
 		}
 		return await window.crypto.subtle.importKey('spki', binaryDer.buffer, {
 			name: 'ECDSA',
@@ -231,14 +302,11 @@ class Decoder {
 	 * 
 	 * @param {Uint8Array} content - Content
 	 * @param {Uint8Array} signature - Signature
-	 * @param {string} serialNumber - ECDSA signature public key serial number
+	 * @param {PublicKey} publicKey - ECDSA signature public key
 	 * @returns {Promise<boolean>} Content signature and ECDSA public key don't match.
 	 * @throws {Error} Cannot read public key for given serial number
 	 */
-	async verifySignature(content, signature, serialNumber) {
-		// Certificate (public key) is not part of DataMatrix, must fetch from server first
-		const publicKey = await this.fetchPublicKey(serialNumber)
-		// Now verify signature
+	async verifySignature(content, signature, publicKey) {
 		const verify = await window.crypto.subtle.verify({
 			name: 'ECDSA',
 			hash: {
@@ -252,8 +320,8 @@ class Decoder {
 
 function attr2html(value) {
 	if (value instanceof Date) {
-		const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-		return value.toLocaleDateString('de-DE', options);
+		const options = { day: '2-digit', month: '2-digit', year: 'numeric' }
+		return value.toLocaleDateString('de-DE', options)
 	}
 	return value
 }
@@ -261,21 +329,27 @@ function attr2html(value) {
 async function fetchDocumentValid(documentNumber) {
 	const response = await fetch(`/seal_verification/valid?document_number=${documentNumber}`)
 	if (!response.ok) {
-		throw new Error(`HTTP error: ${response.status}`);
+		// No 404 possible, unknown documentNumbers are automatically acknowledged with valid (true)
+		throw new Error(`HTTP error: ${response.status}`)
 	}
 	return await response.json()
 }
 
 async function decodeToHtml(decodedText, result) {
 	const decoder = new Decoder(decodedText)
-	await decoder.decode()
+	const decodeResult = await decoder.decode()
+	if (typeof decodeResult === 'string') {
+		return '<h2>Prüfergebnis: Negativ</h2>'
+			+ `<p>${decodeResult}</p>`
+	}
 	if (!decoder.signatureValid) {
 		return '<h2>Prüfergebnis: Negativ</h2>'
 			+ '<p>Der QR-Code wurde erkannt, aber die darin enthaltene digitale Unterschrift ist ungültig!'
 			+ ' Der QR-Code wurde manipuliert bzw. nicht durch die ZAB ausgestellt.</p>'
 	}
-	// TODO make configurable, where document number is
-	const documentValid = await fetchDocumentValid(decoder.urkundennummer)
+	// TODO make configurable, where the documentNumber is
+	const documentNumber = decoder.values.get(4).value
+	const documentValid = await fetchDocumentValid(documentNumber)
 	if (!documentValid) {
 		return '<h2>Prüfergebnis: Negativ</h2>'
 			+ '<p>Der QR-Code wurde korrekt erkannt,'
@@ -288,12 +362,9 @@ async function decodeToHtml(decodedText, result) {
 	html += '<dl id="key-value-list">'
 	html += `<dt>Aussteller</dt><dd>ZAB</dd>` // In seal it's DEZB, but we know, because signature fine
 	html += `<dt>Ausstellungsdatum</dt><dd>${attr2html(decoder.documentIssueDate)}</dd>`
-	html += `<dt>Urkundennummer</dt><dd>${attr2html(decoder.urkundennummer)}</dd>`
-	html += `<dt>Name</dt><dd>${attr2html(decoder.name)}</dd>`
-	html += `<dt>Vorname</dt><dd>${attr2html(decoder.vorname)}</dd>`
-	html += `<dt>Geburtsdatum</dt><dd>${attr2html(decoder.geburtsdatum)}</dd>`
-	html += `<dt>Abschlussbezeichnung</dt><dd>${attr2html(decoder.abschlussbezeichnung)}</dd>`
-	html += `<dt>Bewertung</dt><dd>${attr2html(decoder.bewertung)}</dd>`
+	for (const [_, value] of decoder.values.entries()) {
+		html += `<dt>${value.name}</dt><dd>${attr2html(value.value)}</dd>`
+	}
 	html += '</dl>'
 	html += '<p>Sollten die Angaben nicht übereinstimmen, so wurde der QR-Code für eine andere Person ausgestellt.'
 	return html + '</p>'
@@ -441,6 +512,7 @@ async function verifyImageSeal(file) {
 					throw error
 				}
 			}
+			throw error
 		}
 	} finally {
 		qrcodeElement.remove()

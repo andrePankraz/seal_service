@@ -46,8 +46,8 @@ public class SealVerification {
 	 */
 	@GET
 	@Path("profile")
-	@Produces(MediaType.APPLICATION_XML)
-	public Response getProfile(@QueryParam("docProfileNr") String docProfileNr) {
+	@Produces(MediaType.TEXT_PLAIN)
+	public Response getProfile(@QueryParam("doc_profile_nr") String docProfileNr) {
 		LOGGER.debug("Get document profile for docProfileNr : " + docProfileNr);
 		final var docProfile = this.documentProfileCache.getDocProfile(docProfileNr);
 		if (docProfile == null) {
