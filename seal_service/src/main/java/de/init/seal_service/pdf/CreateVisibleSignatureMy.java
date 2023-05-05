@@ -86,6 +86,55 @@ public class CreateVisibleSignatureMy extends CreateSignatureBase {
 		super(keystore, pin);
 	}
 
+	/**
+	 * We must add the visual signature also in a normal way (directly to PDF) and
+	 * not just via PDF visual signature feature, because not all viewers support
+	 * PDF visual signatures (e.g. Samsung Notes).
+	 *
+	 * @param doc       PDF document
+	 * @param pageNum   page number, where the signature image should be added
+	 * @param rect      rectange, where the signature image should be added
+	 * @param signature signature for extracting information (reason)
+	 * @param image     signature image
+	 * @throws IOException problems...
+	 */
+	private void addImageAndTextToPage(final PDDocument doc, final int pageNum, final PDRectangle rect,
+			final PDSignature signature, final byte[] image) throws IOException {
+		final var page = doc.getPage(pageNum);
+		final PDFont font = new PDType1Font(FontName.HELVETICA_BOLD);
+		final var height = rect.getHeight();
+
+		try (var cs = new PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+			// show background (just for debugging, to see the rect size + position)
+			cs.setNonStrokingColor(Color.lightGray);
+			cs.addRect(rect.getLowerLeftX(), rect.getLowerLeftY(), rect.getWidth(), rect.getHeight());
+			cs.fill();
+
+			if (image != null) {
+				cs.saveGraphicsState();
+				final var img = PDImageXObject.createFromByteArray(doc, image, "SignatureImage");
+				final var scale = rect.getWidth() / img.getWidth();
+				cs.transform(Matrix.getTranslateInstance(rect.getLowerLeftX(), rect.getLowerLeftY()));
+				cs.transform(Matrix.getScaleInstance(scale, scale));
+				cs.drawImage(img, 0, 0);
+				cs.restoreGraphicsState();
+			}
+
+			// show text
+			final var fontSize = 10F;
+			final var leading = fontSize * 1.5f;
+			cs.beginText();
+			cs.setFont(font, fontSize);
+			cs.setNonStrokingColor(Color.black);
+			cs.newLineAtOffset(rect.getLowerLeftX() + fontSize, rect.getLowerLeftY() + height - leading);
+			cs.setLeading(leading);
+
+			final var reason = signature.getReason();
+			cs.showText(reason);
+			cs.endText();
+		}
+	}
+
 	private PDRectangle createSignatureRectangle(final PDDocument doc, final Rectangle2D humanRect) {
 		final var x = (float) humanRect.getX();
 		final var y = (float) humanRect.getY();
@@ -402,6 +451,11 @@ public class CreateVisibleSignatureMy extends CreateSignatureBase {
 
 			// the signing date, needed for valid signature
 			signature.setSignDate(Calendar.getInstance());
+
+			// We must add the visual signature also in a normal way (directly to PDF) and
+			// not just via PDF visual signature feature, because not all viewers support
+			// PDF visual signatures.
+			addImageAndTextToPage(doc, 0, rect, signature, image);
 
 			// do not set SignatureInterface instance, if external signing used
 			final var signatureInterface = isExternalSigning() ? null : this;

@@ -122,7 +122,7 @@ class Decoder {
 		this.signatureValid = await this.verifySignature(this.data.subarray(0, this.signaturePos), this.signature, publicKey)
 
 		// Debugging: Log info...
-		if (true) {
+		if (false) {
 			console.log('Header:')
 			console.log(`  Aussteller: ${this.signerIdentifier}`)
 			console.log(`  Zertifikat: ${this.certificateReference}`)
