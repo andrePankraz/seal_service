@@ -19,6 +19,7 @@ import javax.inject.Inject;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import de.init.seal_service.pdf.pdfbox_signature.validation.AddValidationInformation;
 import de.init.seal_service.visual.BarcodeProcessor;
 import de.init.seal_service.visual.SealEncoder;
 
@@ -58,6 +59,12 @@ public class PdfSealer {
 	@ConfigProperty(name = "keystore.pdf.private.alias")
 	String pdfPrivateAlias;
 
+	@ConfigProperty(name = "seal.pdf.tsa")
+	String sealTsa;
+
+	@ConfigProperty(name = "seal.pdf.ltv")
+	boolean sealLtv;
+
 	@ConfigProperty(name = "seal.pdf.name")
 	String sealName;
 
@@ -88,15 +95,38 @@ public class PdfSealer {
 		this.createVisibleSignature = new CreateVisibleSignatureMy(keystore, pin);
 	}
 
+	/**
+	 * Validate resulting PDF in Acrobat Reader and also here:
+	 * https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/validation
+	 *
+	 * @param pdf       original PDF (not sealed yet)
+	 * @param docValues values for Visual Seal
+	 * @return sealed PDF (including Visual Seal and Metadata Seal with Timestamp
+	 *         and LTV)
+	 * @throws IOException
+	 */
 	public byte[] sealPdf(final byte[] pdf, final Map<String, String> docValues) throws IOException {
-		final var seal = this.sealEncoder.encode(docValues);
+		// Add PDF Verification Info (QR-Code with URL)
 		// TODO Following callout is just for test. It's not configurable and very
 		// ZAB-specific. Better do it before as part of the Input PDF.
 		final var pdfExpl = PdfAddValidationExplanation.addExplanation(pdf);
+
+		// Create Visual Seal data stream
+		final var seal = this.sealEncoder.encode(docValues);
+
+		// Add Visual Seal to PDF and Sign PDF
 		final var dataMatrixSeal = this.barcodeProcessor.encodeDataMatrix(seal, "png", 200, 200);
 		final var rect = new Rectangle2D.Float(70, 580, 200, 220);
-		return this.createVisibleSignature.signPDF(pdfExpl, rect, null, "Siegel", dataMatrixSeal, this.sealName,
-				this.sealLocation, replaceAttributes(this.sealReason, docValues), this.sealContact);
+		final var sealed_pdf = this.createVisibleSignature.signPDF(pdfExpl, rect, this.sealTsa, "Siegel",
+				dataMatrixSeal, this.sealName, this.sealLocation, replaceAttributes(this.sealReason, docValues),
+				this.sealContact);
+
+		// Add Long Term Validation (LTV) info
+		if (!this.sealLtv) {
+			return sealed_pdf;
+		}
+		final var addValidationInformation = new AddValidationInformation();
+		return addValidationInformation.validateSignature(sealed_pdf);
 	}
 
 }

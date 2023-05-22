@@ -3,7 +3,7 @@
  * 
  * This file contains all methods for validating PDF signatures.
  */
-const verifyPDF = require('pdf-signature-reader')
+const pdfSignatureReader = require('./local_modules/pdf-signature-reader');
 const forge = require('node-forge')
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js')
 
@@ -148,11 +148,20 @@ async function verifySignatures(signatures) {
 	return false
 }
 
-async function verifyPdfSeal(file) {
+async function verifyPdfSeal(file, pageNumber = 1) {
+	// Following doesn't work, because pdf.js right now doesn't parse annotation data
+	//	const annotations = await pdfPage.getAnnotations();
+	//	annotations.forEach(annotation => {
+	//		if (annotation.subtype === 'Widget' && annotation.fieldType === 'Sig') {
+	//			const signatureData = annotation.data;
+	//			// ...
+	//		}
+	//	});
+
 	const fileBuffer = await readFileAsync(file)
 	let verified, authenticity, integrity, expired, signatures
 	try {
-		({ verified, authenticity, integrity, expired, signatures } = verifyPDF(fileBuffer))
+		({ verified, authenticity, integrity, expired, signatures } = pdfSignatureReader(fileBuffer))
 	} catch (error) {
 		// If no signature found: cannot find subfilter
 		return false
@@ -165,51 +174,38 @@ async function verifyPdfSeal(file) {
 }
 
 async function convertPdfToImageFile(file, pageNumber = 1) {
-	return new Promise(async (resolve, reject) => {
-		const fileReader = new FileReader()
+	const arrayBuffer = await readFileAsync(file);
 
-		fileReader.onload = async function(e) {
-			try {
-				const pdfData = new Uint8Array(e.target.result)
+	// Load the PDF document using pdf.js
+	const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+	const pdfDocument = await loadingTask.promise;
 
-				// Load the PDF document using pdf.js
-				const loadingTask = pdfjsLib.getDocument({ data: pdfData })
-				const pdfDocument = await loadingTask.promise
+	// Fetch the requested page
+	const pdfPage = await pdfDocument.getPage(pageNumber);
 
-				// Fetch the requested page
-				const pdfPage = await pdfDocument.getPage(pageNumber)
+	// Create the canvas element and its context
+	const canvas = document.createElement('canvas');
+	const context = canvas.getContext('2d');
 
-				// Create the canvas element and its context
-				const canvas = document.createElement('canvas')
-				const context = canvas.getContext('2d')
+	// Calculate the desired viewport based on the canvas size
+	const viewport = pdfPage.getViewport({ scale: 1 });
+	canvas.width = viewport.width;
+	canvas.height = viewport.height;
 
-				// Calculate the desired viewport based on the canvas size
-				const viewport = pdfPage.getViewport({ scale: 1 })
-				canvas.width = viewport.width
-				canvas.height = viewport.height
+	// Render the PDF page to the canvas
+	await pdfPage.render({ canvasContext: context, viewport: viewport }).promise;
 
-				// Render the PDF page to the canvas
-				await pdfPage.render({ canvasContext: context, viewport: viewport }).promise
-
-				// Get the image data from the canvas as a Blob
-				canvas.toBlob(blob => {
-					// Resolve the promise with the File-of-Blob object
-					resolve(new File([blob], 'image.png', { type: 'image/png' }))
-				}, 'image/png')
-
-				// Remove the canvas element from the DOM (if it was added)
-				if (canvas.parentElement) {
-					canvas.parentElement.removeChild(canvas)
-				}
-			} catch (error) {
-				reject(error)
+	// Get the image data from the canvas as a Blob
+	return new Promise((resolve, reject) => {
+		canvas.toBlob(blob => {
+			// Resolve the promise with the File-of-Blob object
+			if (blob) {
+				resolve(new File([blob], 'image.png', { type: 'image/png' }));
+			} else {
+				reject(new Error('Unable to convert canvas to blob'));
 			}
-		}
-		fileReader.onerror = function(e) {
-			reject(e)
-		}
-		fileReader.readAsArrayBuffer(file)
-	})
+		}, 'image/png');
+	});
 }
 
 module.exports = verifyPdfSeal

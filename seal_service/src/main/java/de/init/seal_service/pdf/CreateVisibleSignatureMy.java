@@ -462,6 +462,7 @@ public class CreateVisibleSignatureMy extends CreateSignatureBase {
 
 			// register signature dictionary and sign interface
 			this.signatureOptions = new SignatureOptions();
+			this.signatureOptions.setPreferredSignatureSize(16384); // Default not sufficient with TSA
 			this.signatureOptions.setVisualSignature(createVisualSignatureTemplate(doc, 0, rect, signature, image));
 			this.signatureOptions.setPage(0);
 			doc.addSignature(signature, signatureInterface, this.signatureOptions);

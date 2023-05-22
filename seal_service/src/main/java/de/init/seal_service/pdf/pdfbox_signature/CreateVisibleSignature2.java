@@ -88,7 +88,7 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 	 * @throws java.security.NoSuchAlgorithmException
 	 * @throws java.security.UnrecoverableKeyException
 	 */
-	public static void main(String[] args) throws KeyStoreException, CertificateException, IOException,
+	public static void main(final String[] args) throws KeyStoreException, CertificateException, IOException,
 			NoSuchAlgorithmException, UnrecoverableKeyException {
 
 		if (args.length < 3) {
@@ -183,12 +183,12 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 	 *                                   time
 	 * @throws IOException               if no certificate could be found
 	 */
-	public CreateVisibleSignature2(KeyStore keystore, char[] pin) throws KeyStoreException, UnrecoverableKeyException,
-			NoSuchAlgorithmException, IOException, CertificateException {
+	public CreateVisibleSignature2(final KeyStore keystore, final char[] pin) throws KeyStoreException,
+			UnrecoverableKeyException, NoSuchAlgorithmException, IOException, CertificateException {
 		super(keystore, pin);
 	}
 
-	private PDRectangle createSignatureRectangle(PDDocument doc, Rectangle2D humanRect) {
+	private PDRectangle createSignatureRectangle(final PDDocument doc, final Rectangle2D humanRect) {
 		final var x = (float) humanRect.getX();
 		final var y = (float) humanRect.getY();
 		final var width = (float) humanRect.getWidth();
@@ -229,8 +229,8 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 
 	// create a template PDF document with empty signature and return it as a
 	// stream.
-	private InputStream createVisualSignatureTemplate(PDDocument srcDoc, int pageNum, PDRectangle rect,
-			PDSignature signature) throws IOException {
+	private InputStream createVisualSignatureTemplate(final PDDocument srcDoc, final int pageNum,
+			final PDRectangle rect, final PDSignature signature) throws IOException {
 		try (var doc = new PDDocument()) {
 			final var page = new PDPage(srcDoc.getPage(pageNum).getMediaBox());
 			doc.addPage(page);
@@ -298,11 +298,11 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 				cs.addRect(-5000, -5000, 10000, 10000);
 				cs.fill();
 
-				if (imageFile != null) {
+				if (this.imageFile != null) {
 					// show background image
 					// save and restore graphics if the image is too large and needs to be scaled
 					cs.saveGraphicsState();
-					final var img = PDImageXObject.createFromFileByExtension(imageFile, doc);
+					final var img = PDImageXObject.createFromFileByExtension(this.imageFile, doc);
 					// Scale image width, optionally preserve vertical space for upper text
 					final var scale = rect.getWidth() / img.getWidth();
 					cs.transform(Matrix.getScaleInstance(scale, scale));
@@ -354,7 +354,7 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 
 	// Find an existing signature (assumed to be empty). You will usually not need
 	// this.
-	private PDSignature findExistingSignature(PDAcroForm acroForm, String sigFieldName) {
+	private PDSignature findExistingSignature(final PDAcroForm acroForm, final String sigFieldName) {
 		PDSignature signature = null;
 		PDSignatureField signatureField;
 		if (acroForm != null) {
@@ -376,14 +376,14 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 	}
 
 	public File getImageFile() {
-		return imageFile;
+		return this.imageFile;
 	}
 
 	public boolean isLateExternalSigning() {
-		return lateExternalSigning;
+		return this.lateExternalSigning;
 	}
 
-	public void setImageFile(File imageFile) {
+	public void setImageFile(final File imageFile) {
 		this.imageFile = imageFile;
 	}
 
@@ -394,7 +394,7 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 	 *
 	 * @param lateExternalSigning
 	 */
-	public void setLateExternalSigning(boolean lateExternalSigning) {
+	public void setLateExternalSigning(final boolean lateExternalSigning) {
 		this.lateExternalSigning = lateExternalSigning;
 	}
 
@@ -408,7 +408,8 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 	 * @param tsaUrl     optional TSA url
 	 * @throws IOException
 	 */
-	public void signPDF(File inputFile, File signedFile, Rectangle2D humanRect, String tsaUrl) throws IOException {
+	public void signPDF(final File inputFile, final File signedFile, final Rectangle2D humanRect, final String tsaUrl)
+			throws IOException {
 		this.signPDF(inputFile, signedFile, humanRect, tsaUrl, null);
 	}
 
@@ -424,8 +425,8 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 	 *                           field
 	 * @throws IOException
 	 */
-	public void signPDF(File inputFile, File signedFile, Rectangle2D humanRect, String tsaUrl,
-			String signatureFieldName) throws IOException {
+	public void signPDF(final File inputFile, final File signedFile, final Rectangle2D humanRect, final String tsaUrl,
+			final String signatureFieldName) throws IOException {
 		if (inputFile == null || !inputFile.exists()) {
 			throw new IOException("Document for signing does not exist");
 		}
@@ -515,10 +516,10 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 			final var signatureInterface = isExternalSigning() ? null : this;
 
 			// register signature dictionary and sign interface
-			signatureOptions = new SignatureOptions();
-			signatureOptions.setVisualSignature(createVisualSignatureTemplate(doc, 0, rect, signature));
-			signatureOptions.setPage(0);
-			doc.addSignature(signature, signatureInterface, signatureOptions);
+			this.signatureOptions = new SignatureOptions();
+			this.signatureOptions.setVisualSignature(createVisualSignatureTemplate(doc, 0, rect, signature));
+			this.signatureOptions.setPage(0);
+			doc.addSignature(signature, signatureInterface, this.signatureOptions);
 
 			if (isExternalSigning()) {
 				final var externalSigning = doc.saveIncrementalForExternalSigning(fos);
@@ -570,7 +571,7 @@ public class CreateVisibleSignature2 extends CreateSignatureBase {
 		// in signature options might by closed by gc, which would close COSStream
 		// objects prematurely.
 		// See https://issues.apache.org/jira/browse/PDFBOX-3743
-		IOUtils.closeQuietly(signatureOptions);
+		IOUtils.closeQuietly(this.signatureOptions);
 	}
 
 }

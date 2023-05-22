@@ -1,10 +1,32 @@
-# Temporary PDF Seal Certificates
+# PDF Seal Certificates
 
 PDF Seals require RSA Certificates (PDF Signing with PAdES) with a complete chain.
 
-## Create Keystores
+## Import Keystores (D-Trust)
 
 We create two separate keystores (PKCS12 format) for private keys and public certificates.
+
+D-Trust delivers a pfx, which must be converted to p12.
+
+1) Convert pfx to p12:
+
+```
+keytool -importkeystore -srckeystore zab_pdf_private.pfx -srcstoretype pkcs12 -destkeystore zab_pdf_private.p12 -deststoretype PKCS12 -srcalias 1 -destalias zab
+```
+Now you have a Java keystore named zab_pdf_private.p12 that contains the end-entity key pair and the certificate chain (root CA, intermediate CA, and end-entity certificates).
+
+2) Create (or extend) a PKCS#12 file "zab_pdf_public.p12" containing the public keys (with the certificates serial numbers as alias):
+
+```
+openssl pkcs12 -in zab_pdf_private.p12 -nokeys -out zab_pdf_public.crt -passin pass:yourpassword
+CERT_SERIAL_NUMBER=$(openssl x509 -in zab_pdf_public.crt -noout -serial | cut -d '=' -f 2)
+keytool -import -file zab_pdf_public.crt -keystore ../keystore_pdf/zab_pdf_public.p12 -alias $CERT_SERIAL_NUMBER -storetype PKCS12 --noprompt
+```
+## Alternative: Create Keystores with temporary certificates
+
+We create two separate keystores (PKCS12 format) for private keys and public certificates.
+
+Caution: Temporary certificates will not validate correctly in Acrobat Reader, because the Root CA isn't known there as trusted entity.
 
 1) Create a root CA key pair and certificate:
 
@@ -59,9 +81,9 @@ keytool -importcert -alias rootCA -file rootCA.pem -keystore zab_pdf_private.p12
 keytool -importcert -alias intermediateCA -file intermediateCA.pem -keystore zab_pdf_private.p12 -storepass 123456 -noprompt
 keytool -importcert -alias zab -file zab.pem -keystore zab_pdf_private.p12 -storepass 123456
 ```
-Now you have a Java keystore named zab.p12 that contains the end-entity key pair and the certificate chain (root CA, intermediate CA, and end-entity certificates).
+Now you have a Java keystore named zab_pdf_private.p12 that contains the end-entity key pair and the certificate chain (root CA, intermediate CA, and end-entity certificates).
 
-10) Create (or extend) a PKCS#12 file "public.p12" containing the public keys (with the certificates serial numbers as alias):
+10) Create (or extend) a PKCS#12 file "zab_pdf_public.p12" containing the public keys (with the certificates serial numbers as alias):
 
 ```
 export CERT_SERIAL_NUMBER=$(openssl x509 -in zab.pem -noout -serial | cut -d '=' -f 2)
