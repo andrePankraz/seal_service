@@ -4,7 +4,9 @@ This file was created by ]init[ AG 2023.
 
 # Seal Service
 
-TODO
+This service enables the signing / sealing of PDF documents.
+A classical PDF metadata signature (PAdES with Timestamp and LTV) is supported as well as a printable "Visual Seal" (BSI TR-03171, BSI TR-03137-1 und ICAO: Doc 9303, Part 13).
+The Service also supports a verification page with JavaScript-side validation (not Server-side).
 
 ## Start as local service with Test-UI
 
