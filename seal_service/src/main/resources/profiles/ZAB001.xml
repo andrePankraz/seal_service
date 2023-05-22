@@ -9,8 +9,8 @@
 	<entry optional="false" tag="4">
 		<name>Urkundennummer</name>
 		<description>description</description>
-		<length>6</length>
-		<type>alphanum</type>
+		<length>15</length>
+		<type>string</type>
 	</entry>
 	<entry optional="false" tag="5">
 		<name>Name</name>

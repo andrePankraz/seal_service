@@ -32,7 +32,7 @@ public class SealEncoderTest {
 		final var seal = this.sealEncoder.encode(docValues);
 
 		final var len = seal.getBytes(StandardCharsets.ISO_8859_1).length;
-		Assertions.assertEquals(229, len);
+		Assertions.assertEquals(237, len);
 	}
 
 }

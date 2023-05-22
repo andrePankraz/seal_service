@@ -33,7 +33,7 @@ const getMessageFromSignature = (signature) => {
 };
 
 const getMetaRegexMatch = (keyName) => (str) => {
-  const regex = new RegExp(`/${keyName}\\s*\\(([\\w.\\s@,]*)`, 'g');
+  const regex = new RegExp(`/${keyName}\\s*\\(([\\w.\\s@,/-]*)`, 'g');
   const matches = [...str.matchAll(regex)];
   const meta = matches.length ? matches[matches.length - 1][1] : null;
 
