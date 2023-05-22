@@ -29,15 +29,18 @@ const extractSignature = (pdf) => {
   const pdfBuffer = preparePDF(pdf);
 
   const { byteRanges } = getByteRange(pdfBuffer);
-  const lastIndex = byteRanges.length - 1;
-  const endOfByteRange = byteRanges[lastIndex][2] + byteRanges[lastIndex][3];
 
-  if (pdfBuffer.length > endOfByteRange) {
-    throw new VerifyPDFError(
-      'Failed byte range verification.',
-      VerifyPDFError.VERIFY_BYTE_RANGE,
-    );
-  }
+  // LTV adds additional info after endOfByteRange - this check is to restrictive:
+
+  // const lastIndex = byteRanges.length - 1;
+  // const endOfByteRange = byteRanges[lastIndex][2] + byteRanges[lastIndex][3];
+
+  //  if (pdfBuffer.length > endOfByteRange) {
+  //    throw new VerifyPDFError(
+  //      'Failed byte range verification.',
+  //      VerifyPDFError.VERIFY_BYTE_RANGE,
+  //    );
+  //  }
 
   const signatureStr = [];
   const signedData = [];
