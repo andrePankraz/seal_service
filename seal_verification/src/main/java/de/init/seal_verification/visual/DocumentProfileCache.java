@@ -6,6 +6,7 @@ package de.init.seal_verification.visual;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,10 +26,10 @@ public class DocumentProfileCache {
 	}
 
 	@PostConstruct
-	void postConstruct() {
+	void postConstruct() throws URISyntaxException {
 		this.docProfiles = new HashMap<>();
 
-		final var profilesPath = Paths.get(getClass().getResource("/profiles").getPath());
+		final var profilesPath = Paths.get(getClass().getResource("/profiles").toURI());
 
 		try (var directoryStream = Files.newDirectoryStream(profilesPath, "*.xml")) {
 			for (final Path path : directoryStream) {
